@@ -1,0 +1,200 @@
+TIME DELAY TARGET VALIDATION
+========================================================================
+
+Scope
+-----
+This report validates the 190 project-level labels currently retained by
+the delay-target generation process. It does not train a model and does not
+modify the Cost Overrun model, backend, frontend, or source datasets.
+
+Classification policy
+---------------------
+CONFIRMED ACTUAL:
+  Only an explicit field named "Actual Date of Completion",
+  "Actual Completion Date", or "Actual Date of Completion (MM/YYYY)" was
+  accepted as actual completion evidence.
+
+REVISED/PLANNED:
+  "Revised Completion Date (MM/YYYY)", "Revised DoC MM/YYYY", and
+  "revised_doc" were treated as schedule estimates, not completed outcomes.
+
+UNCERTAIN:
+  "Actual/Revised Date of Completion (MM/YYYY)" and "actual_completion" are
+  ambiguous because they combine actual and revised meanings. They were not
+  counted as confirmed actual completion.
+
+Dates were normalized to month precision. A project outcome was considered
+valid only when both original/target and eventual dates were present and the
+eventual date was not earlier than the original/target date. Duplicate
+project outcomes were reduced to one project record, preferring valid
+records, then explicit actual evidence, then the latest outcome/report
+record. No completion date was inferred or fabricated.
+
+A. OUTCOMES BASED ON ACTUAL COMPLETION ONLY
+--------------------------------------------
+Confirmed explicit actual outcomes: 21
+
+B. OUTCOMES BASED ONLY ON REVISED/PLANNED COMPLETION
+----------------------------------------------------
+Revised/planned-only outcomes: 136
+
+Ambiguous actual/revised outcomes, not counted as actual: 33
+
+Therefore, the 190 retained labels consist of:
+  21 confirmed actual
+  136 revised/planned-only
+  33 uncertain ambiguous-field outcomes
+
+C. OUTCOMES WITH BOTH ACTUAL AND REVISED INFORMATION
+----------------------------------------------------
+Projects with both explicit actual and revised completion information:
+20
+
+These projects remain classified as confirmed actual when the explicit
+actual date is valid. The revised date is treated as supporting schedule
+information, not as the actual outcome.
+
+D. DELAYED PROJECTS USING ACTUAL COMPLETION ONLY
+------------------------------------------------
+Confirmed actual delayed projects: 21
+
+Definition:
+  actual completion date > original/target completion date
+
+E. NOT-DELAYED PROJECTS USING ACTUAL COMPLETION ONLY
+---------------------------------------------------
+Confirmed actual not-delayed projects: 0
+
+No confirmed explicit-actual project completed on or before its original
+target date in the retained records.
+
+F. MISSING OR UNCERTAIN OUTCOMES
+--------------------------------
+Project outcomes without a valid confirmed outcome label: 179
+
+This includes missing original dates, missing eventual dates, negative
+delays, and ambiguous actual/revised fields. The 33 valid labels sourced
+from ambiguous actual/revised fields are specifically uncertain and should
+not be used as confirmed actual outcomes.
+
+G. CONFIRMED ACTUAL COMPLETION DATE RANGE
+-----------------------------------------
+Earliest confirmed actual completion: 2025-08-01
+Latest confirmed actual completion:   2026-06-01
+
+H. REVISED/PLANNED COMPLETION DATE RANGE
+----------------------------------------
+Earliest revised/planned completion: 2014-06-01
+Latest revised/planned completion:   2030-03-01
+
+A date such as 2030-03-01 is not treated as actual completion. It is a
+revised/planned schedule date unless an explicit actual completion field
+confirms completion.
+
+I. EXAMPLES
+-----------
+
+I.1 Confirmed actual delayed (10 examples)
+
+Project 400005 | original 2023-06 | actual 2026-05 | delayed
+Project 400259 | original 2020-11 | actual 2026-06 | delayed
+Project 607701 | original 2023-10 | actual 2026-05 | delayed
+Project 611939 | original 2001-06 | actual 2025-08 | delayed
+Project 611947 | original 2025-06 | actual 2026-05 | delayed
+Project 611951 | original 2025-02 | actual 2026-04 | delayed
+Project 612151 | original 2025-07 | actual 2026-04 | delayed
+Project 612178 | original 2025-06 | actual 2026-05 | delayed
+Project 612201 | original 2025-04 | actual 2026-05 | delayed
+Project 612819 | original 2024-09 | actual 2026-01 | delayed
+
+I.2 Confirmed actual not delayed
+
+There are no confirmed actual not-delayed projects in the retained
+outcomes. Therefore, 10 genuine examples cannot be shown without
+fabricating records, which is expressly prohibited.
+
+I.3 Revised/planned-only (10 examples)
+
+Project 400035 | original 2025-09 | revised 2026-06 | revised-only
+Project 400078 | original 2024-12 | revised 2026-07 | revised-only
+Project 400161 | original 2024-01 | revised 2026-02 | revised-only
+Project 400234 | original 2026-03 | revised 2026-07 | revised-only
+Project 400235 | original 2025-03 | revised 2026-01 | revised-only
+Project 611657 | original 2025-03 | revised 2026-01 | revised-only
+Project 611937 | original 2025-12 | revised 2026-05 | revised-only
+Project 611948 | original 2025-04 | revised 2026-06 | revised-only
+Project 611950 | original 2025-04 | revised 2026-02 | revised-only
+Project 611966 | original 2025-07 | revised 2026-05 | revised-only
+
+I.4 Rejected or uncertain (10 examples)
+
+Project 180100210 | missing original and eventual completion dates
+Project 220100133 | missing original and eventual completion dates
+Project 400065 | missing original date; revised 2025-05
+Project 400077 | original 2026-03; ambiguous/invalid eventual 2024-12
+Project 400145 | original 2025-12; revised 2022-03 (negative delay)
+Project 400158 | original 2025-12; revised 2024-02 (negative delay)
+Project 602193 | original 2026-04; ambiguous/invalid eventual 2022-06
+Project 602194 | original 2025-09; revised 2024-02 (negative delay)
+Project 606781 | original 2025-11; revised 2024-12 (negative delay)
+Project 608301 | original 2025-11; revised 2023-09 (negative delay)
+
+J. ADDITIONAL PAIMANA EXCEL FILE CHECK
+---------------------------------------
+The workspace contains the following PAIMANA workbooks with completed
+project sheets:
+
+  Apr-May 2025.xlsx
+    Completed Projects
+  April-May 2026.xlsx
+    Completed Projects
+  Aug-Oct 2025.xlsx
+    Oct - Completed
+  JAN-FEB 2025.xlsx
+    Table3_Completed_Projects
+  June-July 2025.xlsx
+    June_Table3_Completed
+  June-July 2026.xlsx
+    Completed Projects
+  March n Q1 2025.xlsx
+    Flash_T3_Completed
+  Nov-Dec 2025.xlsx
+    November_T3_Completed
+    December_T3_Completed
+
+These are the available PAIMANA workbooks with completed/completion sheets
+in the workspace and are already represented in the cleaned completed
+project source used for this audit. The remaining workbook,
+project_frequency_report.xlsx, does not provide an additional completed
+outcome source with explicit completion-date fields.
+
+No additional workbook was found that clearly increases the confirmed
+actual count beyond the 21 explicit actual outcomes identified here.
+
+K. FINAL CONFIRMED ACTUAL OUTCOME COUNT AND CLASS DISTRIBUTION
+---------------------------------------------------------------
+Final confirmed actual outcomes: 21
+
+Class distribution:
+  Delayed:     21 (100.00%)
+  Not delayed:  0 (0.00%)
+
+The confirmed-actual class distribution contains only one class.
+
+FINAL DECISION
+--------------
+Do we have enough confirmed actual completion outcomes to train a credible
+binary Time Delay model?
+
+No.
+
+There are only 21 confirmed explicit actual outcomes, all delayed, with
+zero confirmed actual not-delayed outcomes. A binary classifier cannot learn
+both classes from this outcome set. The 136 revised/planned-only outcomes
+and 33 ambiguous actual/revised outcomes must not be relabeled as actual
+completion merely to create a second class. Doing so would create label
+noise and could turn schedule estimates into false completion outcomes.
+
+The current data is insufficient for a credible binary Time Delay model.
+More confirmed completed-project records, including both delayed and
+on-time completions, are required before training.

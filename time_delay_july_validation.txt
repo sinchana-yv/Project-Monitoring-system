@@ -1,0 +1,54 @@
+JULY 2026 TIME DELAY MODEL VALIDATION
+==============================================================================
+Model interpretation: current schedule slippage risk, not confirmed
+eventual completion-delay prediction.
+
+ARTIFACTS USED
+---------------
+time_delay_model.txt
+time_delay_numeric_imputer.pkl
+time_delay_categorical_imputer.pkl
+time_delay_onehot_encoder.pkl
+time_delay_feature_names.pkl
+Preprocessing was loaded from saved artifacts and was not refit.
+
+DATA
+----
+Total July rows: 1890
+Valid projects predicted: 1890
+Report months: ['2026-07-01']
+
+RISK LEVEL COUNTS
+-----------------
+HIGH (>= 0.70): 920
+MEDIUM (0.40-0.69): 19
+LOW (< 0.40): 951
+
+PROBABILITY SUMMARY
+-------------------
+Minimum: 0.000007
+Maximum: 0.999979
+Average: 0.490945
+Threshold used: 0.50
+Predicted current slippage risk: 936
+Predicted no current slippage risk: 954
+
+FEATURE COMPATIBILITY
+---------------------
+Required numeric features present: 14
+Required categorical features present: 4
+Transformed feature count: 327
+Saved model feature count: 327
+Feature compatibility: PASSED
+Raw date strings were not used as model inputs.
+
+LEAKAGE CHECK
+-------------
+Forbidden target-defining fields present in source: none
+Forbidden fields were not selected or transformed.
+Actual/revised completion and future information were not used.
+Target leakage check: PASSED
+
+OUTPUT
+------
+JULY_2026_TIME_DELAY_PREDICTIONS.csv

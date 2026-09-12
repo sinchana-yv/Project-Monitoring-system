@@ -1,0 +1,39 @@
+TIME DELAY TARGET AUDIT
+======================================================================
+Completed project records: 485
+Completed projects (unique): 369
+Valid original completion date records: 238
+Valid actual/revised completion date records: 253
+Valid project-level delay labels: 190
+Delayed count: 186
+Not-delayed count: 4
+Invalid/negative-delay records rejected: 179
+Matched ML projects: 166
+Pre-outcome snapshot rows: 290
+Pre-outcome unique projects: 143
+Outcome date range: 2014-06-01 00:00:00 to 2030-03-01 00:00:00
+Output rows: 290
+Output unique projects: 143
+Class distribution: {1: 280, 0: 10}
+
+Deduplication rule:
+One record per project; valid outcomes are preferred over invalid, explicit actual completion over revised completion, then the latest eventual completion date, source report month, and source row.
+
+Rejected records (first 5):
+180100210 | original=NaT | eventual=NaT | source= | negative=False
+220100133 | original=NaT | eventual=NaT | source= | negative=False
+400065 | original=NaT | eventual=2025-05-01 00:00:00 | source=Revised Completion Date (MM/YYYY) | negative=False
+400077 | original=2026-03-01 00:00:00 | eventual=2024-12-01 00:00:00 | source=actual_completion | negative=True
+400145 | original=2025-12-01 00:00:00 | eventual=2022-03-01 00:00:00 | source=Revised Completion Date (MM/YYYY) | negative=True
+
+Valid records (first 5):
+400005 | original=2023-06-01 00:00:00 | eventual=2026-05-01 00:00:00 | delay_months=34.99 | future_time_delay=1 | kind=actual
+400035 | original=2025-09-01 00:00:00 | eventual=2026-06-01 00:00:00 | delay_months=8.97 | future_time_delay=1 | kind=revised
+400078 | original=2024-12-01 00:00:00 | eventual=2026-07-01 00:00:00 | delay_months=18.96 | future_time_delay=1 | kind=revised
+400161 | original=2024-01-01 00:00:00 | eventual=2026-02-01 00:00:00 | delay_months=25.03 | future_time_delay=1 | kind=revised
+400235 | original=2025-03-01 00:00:00 | eventual=2026-01-01 00:00:00 | delay_months=10.05 | future_time_delay=1 | kind=revised
+
+Leakage controls:
+Only ML rows with report_month strictly before eventual completion date were retained.
+Actual/revised completion dates, revised_cost, cost_increase, future progress/expenditure, and final status are not output features.
+project_code is preserved for grouping/audit but is not a model feature.

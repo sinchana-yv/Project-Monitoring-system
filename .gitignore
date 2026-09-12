@@ -1,0 +1,22 @@
+.venv/
+.venv-1/
+__pycache__/
+*.pyc
+catboost_info/
+node_modules/
+frontend/dist/
+.env
+*.env
+
+# Large raw datasets and training splits
+X_train.csv
+X_test.csv
+X_train_safe.csv
+X_test_safe.csv
+y_train.csv
+y_test.csv
+y_train_safe.csv
+y_test_safe.csv
+
+# Optional generated files
+*.cbm

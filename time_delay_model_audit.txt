@@ -1,0 +1,105 @@
+TIME DELAY / SCHEDULE SLIPPAGE LIGHTGBM MODEL AUDIT
+==============================================================================
+Interpretation: current schedule slippage risk, not confirmed eventual
+completion-delay prediction.
+
+TARGET
+------
+time_delay_risk = 1 if progress_gap < -20 else 0
+Valid rows used: 1821
+Delayed rows: 862
+Not-delayed rows: 959
+
+FEATURES USED
+-------------
+Numeric: physical_progress, previous_progress, progress_change, progress_velocity, expenditure, expenditure_ratio, previous_expenditure, expenditure_change, expenditure_velocity, original_cost, months_observed, days_since_first_report, has_physical_progress, has_expenditure
+Categorical: state, sector, ministry_final, agency_final
+Raw date strings were not passed to LightGBM.
+
+LEAKAGE CHECK
+-------------
+Target-defining columns selected: none
+Target leakage check: PASSED
+The target formula columns were used only to construct y and were not
+included in X. Actual/revised/future completion and future measurements
+were not used.
+Suspicious-performance check: PASSED
+
+DATA SPLIT
+----------
+Training rows: 1456
+Testing rows: 365
+Training delayed/not-delayed: 689/767
+Testing delayed/not-delayed: 173/192
+Split: stratified 80/20, random_state=42
+
+MODEL
+-----
+LGBMClassifier(n_estimators=300, learning_rate=0.05, num_leaves=31,
+max_depth=-1, subsample=0.8, colsample_bytree=0.8,
+class_weight='balanced', random_state=42, n_jobs=-1)
+
+RECOMMENDED THRESHOLD METRICS
+-----------------------------
+Threshold: 0.50
+Accuracy: 0.9096
+Precision: 0.8804
+Recall: 0.9364
+F1: 0.9076
+ROC-AUC: 0.9616
+Confusion matrix [[TN, FP], [FN, TP]]: [[170, 22], [11, 162]]
+
+CLASSIFICATION REPORT
+---------------------
+              precision    recall  f1-score   support
+
+ not_delayed       0.94      0.89      0.91       192
+     delayed       0.88      0.94      0.91       173
+
+    accuracy                           0.91       365
+   macro avg       0.91      0.91      0.91       365
+weighted avg       0.91      0.91      0.91       365
+
+THRESHOLD COMPARISON
+--------------------
+0.30: accuracy=0.9068, precision=0.8677, recall=0.9480, f1=0.9061
+0.35: accuracy=0.9041, precision=0.8670, recall=0.9422, f1=0.9030
+0.40: accuracy=0.9014, precision=0.8663, recall=0.9364, f1=0.9000
+0.45: accuracy=0.9041, precision=0.8710, recall=0.9364, f1=0.9025
+0.50: accuracy=0.9096, precision=0.8804, recall=0.9364, f1=0.9076
+0.55: accuracy=0.9014, precision=0.8785, recall=0.9191, f1=0.8983
+0.60: accuracy=0.8986, precision=0.8820, recall=0.9075, f1=0.8946
+0.65: accuracy=0.8849, precision=0.8786, recall=0.8786, f1=0.8786
+0.70: accuracy=0.8822, precision=0.8869, recall=0.8613, f1=0.8739
+
+TOP FEATURE IMPORTANCES
+-----------------------
+original_cost: 1360.0000
+physical_progress: 1111.0000
+previous_progress: 935.0000
+expenditure_ratio: 806.0000
+progress_change: 732.0000
+expenditure: 697.0000
+previous_expenditure: 658.0000
+expenditure_change: 650.0000
+months_observed: 314.0000
+progress_velocity: 279.0000
+expenditure_velocity: 248.0000
+sector_Roads & Highways: 104.0000
+sector_Coal: 100.0000
+agency_final_(NHIDCL): 81.0000
+days_since_first_report: 65.0000
+agency_final_(NHAI): 60.0000
+state_Gujarat: 55.0000
+sector_Railways: 54.0000
+state_Odisha: 53.0000
+agency_final_(MoRTH): 50.0000
+
+ARTIFACTS
+---------
+time_delay_model.txt
+time_delay_numeric_imputer.pkl
+time_delay_categorical_imputer.pkl
+time_delay_onehot_encoder.pkl
+time_delay_feature_names.pkl
+time_delay_preprocessing_metadata.pkl

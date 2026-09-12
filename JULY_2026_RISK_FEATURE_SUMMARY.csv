@@ -1,0 +1,4 @@
+risk_level,physical_progress,expenditure,original_cost,expenditure_ratio,previous_progress,progress_change,previous_expenditure,expenditure_change,progress_velocity,expenditure_velocity,previous_observations,months_observed,days_since_first_report
+HIGH,81.54,3917.81,2882.65,135.62,80.65,0.89,3098.08,819.73,0.01,13.44,5.09,6.09,473.02
+LOW,41.54,416.14,1585.25,23.02,39.45,3.71,388.85,42.03,0.06,0.69,3.6,4.6,395.56
+MEDIUM,76.5,1179.1,2141.02,58.83,74.45,2.3,994.76,150.88,0.04,2.44,3.48,4.48,428.82

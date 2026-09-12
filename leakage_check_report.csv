@@ -1,0 +1,15 @@
+Metric,Value,Details
+project_id_column,project_code,Identifier retained in ML_FEATURE_DATASET.csv
+month_column,report_month,Monthly observation column
+source_files_with_project_and_month,13,FINAL_CLEAN_ONGOING_PROJECTS.csv; JULY_2026_FEATURE_DATASET.csv; JULY_2026_LIVE_DATA.csv; JULY_2026_RISK_PREDICTIONS.csv; JULY_2026_VALIDATED_PREDICTIONS.csv; ML_COST_OVERRUN_DATASET.csv; ML_FEATURE_DATASET.csv; PAIMANA_DASHBOARD_DATA.csv; clean_completed_projects.csv; clean_ongoing_projects.csv; clean_ongoing_projects_v2.csv; cost_overrun_training_data.csv; project_history_frequency.csv
+total_unique_projects,2284,Across ML_FEATURE_DATASET.csv
+projects_with_multiple_months,1680,Projects with more than one distinct report month
+train_rows,4751,Rows before 2026-05-01
+test_rows,1833,Rows from 2026-05-01
+current_X_train_rows,4751,Rows in X_train.csv
+current_X_test_rows,1833,Rows in X_test.csv
+split_matches_current_files,True,Confirms source split corresponds to current files
+train_unique_projects,1937,Unique IDs in inferred training partition
+test_unique_projects,1833,Unique IDs in inferred test partition
+projects_overlapping_train_test,1486,Same project ID appears in both partitions
+project_level_leakage,True,True when any project crosses train/test

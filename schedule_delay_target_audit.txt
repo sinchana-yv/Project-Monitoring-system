@@ -1,0 +1,95 @@
+SCHEDULE DELAY TARGET AUDIT
+==============================================================================
+
+Input: DELAY_FEATURE_DATASET.csv
+Only rows with schedule_valid == True were analyzed.
+No source dataset was modified and no model was trained.
+
+TARGET DEFINITION
+-----------------
+expected_progress_raw = elapsed_duration_days / planned_duration_days_raw * 100
+expected_progress = expected_progress_raw capped at 100
+progress_gap = physical_progress - expected_progress
+Positive gap means ahead; zero is approximately on schedule; negative gap means behind.
+
+LEAKAGE CHECK
+-------------
+The target uses only start_date-derived duration, original_doc-derived planned duration, report_month, and current physical_progress.
+Actual completion, revised completion, future progress, future expenditure, future cost, and final project status were not used.
+All retained candidate ML features come from the same report-month row or historical/lag values already available at that report month.
+
+ROW-LEVEL RESULTS
+-----------------
+Total valid rows: 1821
+progress_gap < 0: total=1821, delayed=1700, non-delayed=121, delayed_pct=93.36%, delayed_projects=1700, non_delayed_projects=121
+progress_gap < -10: total=1821, delayed=1200, non-delayed=621, delayed_pct=65.90%, delayed_projects=1200, non_delayed_projects=621
+progress_gap < -20: total=1821, delayed=862, non-delayed=959, delayed_pct=47.34%, delayed_projects=862, non_delayed_projects=959
+progress_gap < -30: total=1821, delayed=593, non-delayed=1228, delayed_pct=32.56%, delayed_projects=593, non_delayed_projects=1228
+
+PROGRESS-GAP DISTRIBUTION
+-------------------------
+minimum: -100.0000
+maximum: 49.5225
+mean: -24.0953
+median: -18.4800
+10th percentile: -56.6009
+25th percentile: -36.9526
+50th percentile: -18.4800
+75th percentile: -5.5657
+90th percentile: -0.7000
+
+CLASS-DOMINATION CHECK
+----------------------
+progress_gap < 0: dominant class 93.36%
+progress_gap < -10: dominant class 65.90%
+progress_gap < -20: dominant class 52.66%
+progress_gap < -30: dominant class 67.44%
+
+PROJECT-LEVEL ANALYSIS
+----------------------
+Projects with multiple valid monthly observations: 0
+Projects with one valid snapshot: 1821
+progress_gap < 0: delayed in at least one month=1700, latest delayed=1700, latest not delayed=121
+progress_gap < -10: delayed in at least one month=1200, latest delayed=1200, latest not delayed=621
+progress_gap < -20: delayed in at least one month=862, latest delayed=862, latest not delayed=959
+progress_gap < -30: delayed in at least one month=593, latest delayed=593, latest not delayed=1228
+
+JULY 2026 ANALYSIS
+------------------
+Valid July 2026 rows: 1821
+progress_gap < 0: delayed projects=1700, non-delayed projects=121, delayed=93.36%
+progress_gap < -10: delayed projects=1200, non-delayed projects=621, delayed=65.90%
+progress_gap < -20: delayed projects=862, non-delayed projects=959, delayed=47.34%
+progress_gap < -30: delayed projects=593, non-delayed projects=1228, delayed=32.56%
+
+RECOMMENDATION
+--------------
+RECOMMENDED THRESHOLD:
+progress_gap < -20
+
+REASON:
+This threshold was selected using interpretability, class balance, positive/negative sample counts, and early-warning usefulness. It is not selected for maximum accuracy. A gap of -20 percentage points represents a meaningful shortfall from the current planned schedule while retaining both classes for analysis.
+
+TRAINING ROWS:
+1821
+
+DELAYED:
+862
+
+NOT DELAYED:
+959
+
+JULY DELAYED:
+862
+
+JULY NOT DELAYED:
+959
+
+PROJECT-LEVEL RECOMMENDED RESULT:
+Delayed in at least one valid month: 862
+Delayed in latest valid snapshot: 862
+Not delayed in latest valid snapshot: 959
+
+INTERPRETATION
+--------------
+This target represents current schedule slippage risk, not confirmed eventual completion delay. It can be used for a separate early-warning model only after model validation and time/project-aware evaluation.

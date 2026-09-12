@@ -1,0 +1,158 @@
+CURRENT SCHEDULE DELAY TARGET ANALYSIS
+==============================================================================
+
+This is an analysis-only audit. No source dataset was modified and no
+model was trained. Schedule fields were calculated in memory only.
+
+Date interpretation:
+start_date, original_doc, and report_month were parsed to month starts.
+No actual, revised, future completion, future progress, future expenditure,
+future cost, or final completion-status fields were used.
+
+ML_FEATURE_DATASET.csv
+----------------------
+Total rows: 6584
+Unique projects: 2284
+
+A. Field coverage
+  start_date: 3479 non-null (52.84%)
+  original_doc: 0 non-null (0.00%)
+  report_month: 6584 non-null (100.00%)
+  physical_progress: 6578 non-null (99.91%)
+  previous_progress: 4503 non-null (68.39%)
+  progress_velocity: 4497 non-null (68.30%)
+  months_observed: 6584 non-null (100.00%)
+
+B. Date parsing and schedule calculations
+  Parseable start_date: 3479
+  Parseable original_doc: 0
+  Parseable report_month: 6584
+  Valid schedule rows: 0
+  planned_duration_days non-null: 0
+  elapsed_duration_days non-null: 3479
+  expected_progress non-null: 0
+  progress_gap non-null: 0
+
+C. Invalid records
+  start date missing: 3105
+  original completion missing: 6584
+  planned duration <= 0: 0
+  report month before start date: 52
+  physical progress outside 0-100: 0
+  expected progress > 100: 0
+  impossible dates: 0
+
+D. Progress-gap distribution among valid schedule rows
+  No valid schedule rows available.
+
+E. Candidate schedule-delay rules
+  progress_gap < 0: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+  progress_gap < -10: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+  progress_gap < -20: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+  progress_gap < -30: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+JULY_2026_FEATURE_DATASET.csv
+-----------------------------
+Total rows: 1890
+Unique projects: 1890
+
+A. Field coverage
+  start_date: 0 non-null (0.00%)
+  original_doc: 1890 non-null (100.00%)
+  report_month: 1890 non-null (100.00%)
+  physical_progress: 1890 non-null (100.00%)
+  previous_progress: 1837 non-null (97.20%)
+  progress_velocity: 1837 non-null (97.20%)
+  months_observed: 1890 non-null (100.00%)
+
+B. Date parsing and schedule calculations
+  Parseable start_date: 0
+  Parseable original_doc: 1890
+  Parseable report_month: 1890
+  Valid schedule rows: 0
+  planned_duration_days non-null: 0
+  elapsed_duration_days non-null: 0
+  expected_progress non-null: 0
+  progress_gap non-null: 0
+
+C. Invalid records
+  start date missing: 1890
+  original completion missing: 0
+  planned duration <= 0: 0
+  report month before start date: 0
+  physical progress outside 0-100: 0
+  expected progress > 100: 0
+  impossible dates: 0
+
+D. Progress-gap distribution among valid schedule rows
+  No valid schedule rows available.
+
+E. Candidate schedule-delay rules
+  progress_gap < 0: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+  progress_gap < -10: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+  progress_gap < -20: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+  progress_gap < -30: delayed rows=0, non-delayed rows=0, delayed=0.00%, delayed projects=0, non-delayed projects=0
+
+F. Cross-dataset comparison
+The ML feature dataset and July live dataset are audited separately.
+A target can only be calculated where start_date, original_doc,
+report_month, and physical_progress are all valid under the rules.
+ML valid schedule rows: 0
+ML valid schedule projects: 0
+July valid schedule rows: 0
+July valid schedule projects: 0
+
+G. Current-information and leakage audit
+The calculation uses only start_date, original_doc, report_month,
+and current physical_progress. These are available at the current
+report_month in principle. It does not use actual/revised completion
+dates or any later progress, expenditure, cost, or status.
+
+H. Safe ML features
+  physical_progress
+  previous_progress
+  progress_change
+  progress_velocity
+  expenditure
+  expenditure_ratio
+  previous_expenditure
+  expenditure_change
+  expenditure_velocity
+  original_cost
+  months_observed
+  days_since_first_report
+  has_physical_progress
+  has_expenditure
+  has_original_cost
+  state
+  sector
+  ministry_final
+  agency_final
+  start_date-derived duration features
+  original_doc-derived schedule features
+
+Unsafe features to exclude:
+  actual completion date, revised completion date, future completion
+  future progress, future expenditure, future cost, final status,
+  project_code, project_name, source_file, source_sheet
+
+I. Recommendation
+No threshold can be recommended from the current ML feature dataset because it has no valid rows: start_date is present but original_doc is empty. The July dataset also has no valid rows because start_date is empty.
+
+J. Answers
+1. Can we create a defensible current schedule-delay target?
+   Not from ML_FEATURE_DATASET.csv or JULY_2026_FEATURE_DATASET.csv as currently materialized. The concept is defensible, but the required date fields do not overlap in either dataset.
+2. Which threshold should we use?
+   None can be selected yet. A threshold requires valid schedule rows and should be chosen after the feature pipeline preserves both dates without future leakage.
+3. How many training rows/projects would we have?
+   Current ML dataset: 0 rows, 0 projects.
+4. How many July projects would be currently behind schedule?
+   Current July dataset: no valid schedule rows, so 0 can be classified defensibly.
+5. Is the class balance suitable for ML?
+   No. There are no valid rows in either supplied feature dataset.
+6. Is this better than confirmed-actual completion?
+   It is a better-defined real-time risk concept, but it is not currently implementable from these materialized datasets. It should not replace the confirmed-outcome conclusion yet.
+7. Can we call this Time Delay Risk Prediction in the SIH demo?
+   Only with the qualifier 'current schedule delay risk' or 'schedule slippage risk' after rebuilding the feature dataset with point-in-time start and original-target dates. Do not call it prediction of actual completion delay.
+
+Conclusion:
+Do not train a model yet. Preserve start_date and original_doc as point-in-time schedule inputs in a separate delay pipeline, then rerun this audit before selecting a threshold.
