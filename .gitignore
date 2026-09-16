@@ -7,6 +7,7 @@ node_modules/
 frontend/dist/
 .env
 *.env
+backend/nirikshan_auth.db
 
 # Large raw datasets and training splits
 X_train.csv

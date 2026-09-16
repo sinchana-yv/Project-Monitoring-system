@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 const API = "http://127.0.0.1:5001";
+axios.defaults.withCredentials = true;
 
 const getRiskLevel = (probability) => {
   if (probability >= 0.7) {
@@ -14,7 +15,7 @@ const getRiskLevel = (probability) => {
   return "LOW";
 };
 
-function App() {
+function Dashboard({ user, onLogout }) {
   const [summary, setSummary] = useState(null);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -222,6 +223,29 @@ function App() {
   return (
     <div style={{ padding: "30px", fontFamily: "Arial" }}>
 
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          padding: "12px 16px",
+          border: "1px solid #d9e2ec",
+          borderRadius: "8px",
+          background: "#f8f9fa",
+        }}
+      >
+        <div>
+          <strong>{user.first_name} {user.last_name}</strong>
+          <div style={{ color: "#52606d", fontSize: "13px" }}>
+            {user.email} | {user.ministry} | {user.organization} | {user.state}
+          </div>
+        </div>
+        <button onClick={onLogout} style={{ padding: "8px 14px", cursor: "pointer" }}>
+          Logout
+        </button>
+      </div>
+
       <h1>PAIMANA AI Project Monitoring</h1>
 
       <hr />
@@ -405,6 +429,24 @@ function App() {
               Close
             </button>
 
+            <button
+              onClick={() =>
+                window.open(
+                  `${API}/api/project/${encodeURIComponent(
+                    selectedProject.project_code
+                  )}/report`,
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+              style={{
+                padding: "8px 15px",
+                cursor: "pointer",
+              }}
+            >
+              Download Report
+            </button>
+
           </div>
 
           <hr />
@@ -574,6 +616,7 @@ function App() {
                     <li key={`${factor.feature}-${factor.shap_value}`}>
                       <strong>{factor.feature}</strong>:{" "}
                       {Number(factor.shap_value).toFixed(4)}
+                      {factor.explanation && <span> ({factor.explanation})</span>}
                     </li>
                   ))}
                 </ul>
@@ -588,6 +631,7 @@ function App() {
                     <li key={`${factor.feature}-${factor.shap_value}`}>
                       <strong>{factor.feature}</strong>:{" "}
                       {Number(factor.shap_value).toFixed(4)}
+                      {factor.explanation && <span> ({factor.explanation})</span>}
                     </li>
                   ))}
                 </ul>
@@ -620,6 +664,7 @@ function App() {
                     <li key={`${factor.feature}-${factor.shap_value}`}>
                       <strong>{factor.feature}</strong>:{" "}
                       {Number(factor.shap_value).toFixed(4)}
+                      {factor.explanation && <span> ({factor.explanation})</span>}
                     </li>
                   ))}
                 </ul>
@@ -634,6 +679,7 @@ function App() {
                     <li key={`${factor.feature}-${factor.shap_value}`}>
                       <strong>{factor.feature}</strong>:{" "}
                       {Number(factor.shap_value).toFixed(4)}
+                      {factor.explanation && <span> ({factor.explanation})</span>}
                     </li>
                   ))}
                 </ul>
@@ -648,6 +694,285 @@ function App() {
 
     </div>
   );
+}
+
+const authCardStyle = {
+  width: "min(460px, calc(100% - 32px))",
+  margin: "40px auto",
+  padding: "28px",
+  background: "white",
+  border: "1px solid #d9e2ec",
+  borderRadius: "10px",
+  boxShadow: "0 4px 18px rgba(16, 42, 67, 0.08)",
+};
+
+const authInputStyle = {
+  width: "100%",
+  padding: "10px 12px",
+  marginTop: "6px",
+  border: "1px solid #bcccdc",
+  borderRadius: "5px",
+  fontSize: "15px",
+};
+
+const getApiError = (error, fallback) => {
+  if (!error.response) {
+    return "Unable to connect to the authentication server. Please try again.";
+  }
+  return error.response.data?.error || fallback;
+};
+
+function AuthShell({ title, subtitle, children }) {
+  return (
+    <main style={{ minHeight: "100vh", padding: "1px 0", background: "#f4f7fb", color: "#172033" }}>
+      <section style={authCardStyle}>
+        <h1 style={{ marginTop: 0, color: "#102a43" }}>NIRIKSHAN</h1>
+        <p style={{ color: "#52606d" }}>SIH26103 | Intelligent Infrastructure Project Monitoring</p>
+        <h2>{title}</h2>
+        {subtitle && <p style={{ color: "#52606d" }}>{subtitle}</p>}
+        {children}
+        <p style={{ marginBottom: 0, fontSize: "13px", color: "#52606d" }}>
+          NIRIKSHAN prototype authentication. Use only an account you are authorized to access.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function PasswordField({ label, value, onChange, visible, onToggle, error, name, autoComplete }) {
+  return (
+    <label style={{ display: "block", marginBottom: "14px" }}>
+      {label}
+      <div style={{ display: "flex", gap: "6px" }}>
+        <input
+          name={name}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={onChange}
+          autoComplete={autoComplete}
+          style={authInputStyle}
+          aria-invalid={Boolean(error)}
+        />
+        <button type="button" onClick={onToggle} aria-label={`Show or hide ${label.toLowerCase()}`}>
+          {visible ? "Hide" : "Show"}
+        </button>
+      </div>
+      {error && <span style={{ display: "block", color: "#c53030", fontSize: "13px" }}>{error}</span>}
+    </label>
+  );
+}
+
+function SignIn({ onNavigate, onLogin, initialEmail = "" }) {
+  const [form, setForm] = useState({ email: initialEmail, password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const nextErrors = {};
+    if (!form.email) nextErrors.email = "Email Address is required.";
+    if (!form.password) nextErrors.password = "Password is required.";
+    setErrors(nextErrors);
+    setApiError("");
+    if (Object.keys(nextErrors).length) return;
+    setSubmitting(true);
+    try {
+      const response = await axios.post(`${API}/api/auth/login`, form);
+      onLogin(response.data.user);
+      onNavigate("/dashboard");
+    } catch (error) {
+      setApiError(getApiError(error, "Invalid email or password. Please check your credentials and try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AuthShell title="Sign In" onNavigate={onNavigate}>
+      <form onSubmit={submit} noValidate>
+        <label style={{ display: "block", marginBottom: "14px" }}>
+          Email Address
+          <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={authInputStyle} autoComplete="email" aria-invalid={Boolean(errors.email)} />
+          {errors.email && <span style={{ display: "block", color: "#c53030", fontSize: "13px" }}>{errors.email}</span>}
+        </label>
+        <PasswordField label="Password" name="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} visible={showPassword} onToggle={() => setShowPassword(!showPassword)} error={errors.password} autoComplete="current-password" />
+        {apiError && <p role="alert" style={{ color: "#c53030" }}>{apiError}</p>}
+        <button type="submit" disabled={submitting} style={{ width: "100%", padding: "11px", cursor: submitting ? "wait" : "pointer" }}>
+          {submitting ? "Signing In..." : "Sign In"}
+        </button>
+      </form>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "18px" }}>
+        <button type="button" onClick={() => onNavigate("/forgot-password")} style={{ border: 0, background: "none", color: "#1f6f8b", cursor: "pointer" }}>Forgot Password</button>
+        <button type="button" onClick={() => onNavigate("/signup")} style={{ border: 0, background: "none", color: "#1f6f8b", cursor: "pointer" }}>Create Account</button>
+      </div>
+    </AuthShell>
+  );
+}
+
+const signUpInitial = {
+  first_name: "", last_name: "", contact_number: "", email: "", ministry: "", organization: "", state: "", password: "", confirm_password: "",
+};
+
+function passwordMessage(value) {
+  const missing = [];
+  if (value.length < 8) missing.push("8+ characters");
+  if (!/[A-Z]/.test(value)) missing.push("uppercase");
+  if (!/[a-z]/.test(value)) missing.push("lowercase");
+  if (!/\d/.test(value)) missing.push("number");
+  if (!/[^A-Za-z0-9]/.test(value)) missing.push("special character");
+  return missing.length ? `Needs: ${missing.join(", ")}` : "Strong password";
+}
+
+function SignUp({ onNavigate }) {
+  const [form, setForm] = useState(signUpInitial);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const update = (name, value) => setForm((current) => ({ ...current, [name]: value }));
+  const submit = async (event) => {
+    event.preventDefault();
+    const nextErrors = {};
+    ["first_name", "last_name", "contact_number", "email", "ministry", "organization", "state", "password", "confirm_password"].forEach((field) => {
+      if (!form[field].trim()) nextErrors[field] = "This field is required.";
+    });
+    if (form.password && passwordMessage(form.password) !== "Strong password") nextErrors.password = "Password must be at least 8 characters with uppercase, lowercase, number, and special character.";
+    if (form.confirm_password && form.password !== form.confirm_password) nextErrors.confirm_password = "Passwords do not match.";
+    if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) nextErrors.email = "Enter a valid email address.";
+    if (form.contact_number && !/(?:\+91[- ]?)?[6-9]\d{9}/.test(form.contact_number)) nextErrors.contact_number = "Enter a valid Indian mobile number.";
+    setErrors(nextErrors);
+    setApiError("");
+    if (Object.keys(nextErrors).length) return;
+    setSubmitting(true);
+    try {
+      const response = await axios.post(`${API}/api/auth/register`, form);
+      setSuccess(response.data.message);
+      setForm({ ...signUpInitial, email: form.email.toLowerCase() });
+    } catch (error) {
+      setErrors(error.response?.data?.errors || {});
+      setApiError(getApiError(error, "Registration failed. Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fields = [
+    ["first_name", "First Name", "text"], ["last_name", "Last Name", "text"],
+    ["contact_number", "Contact Number", "tel"], ["email", "Email Address", "email"],
+    ["ministry", "Ministry/Department", "text"], ["organization", "Organization", "text"], ["state", "State", "text"],
+  ];
+  return (
+    <AuthShell title="Create Account" subtitle="Register a NIRIKSHAN user account." onNavigate={onNavigate}>
+      {success ? (
+        <div role="status">
+          <p style={{ color: "#276749" }}>{success}</p>
+          <button type="button" onClick={() => onNavigate("/signin")}>Go to Sign In</button>
+        </div>
+      ) : (
+        <form onSubmit={submit} noValidate>
+          {fields.map(([name, label, type]) => (
+            <label key={name} style={{ display: "block", marginBottom: "12px" }}>
+              {label}
+              <input type={type} value={form[name]} onChange={(e) => update(name, e.target.value)} style={authInputStyle} autoComplete={name === "email" ? "email" : "off"} aria-invalid={Boolean(errors[name])} />
+              {errors[name] && <span style={{ display: "block", color: "#c53030", fontSize: "13px" }}>{errors[name]}</span>}
+            </label>
+          ))}
+          <PasswordField label="Create Password" name="password" value={form.password} onChange={(e) => update("password", e.target.value)} visible={showPassword} onToggle={() => setShowPassword(!showPassword)} error={errors.password} autoComplete="new-password" />
+          <p style={{ marginTop: "-8px", fontSize: "13px", color: passwordMessage(form.password) === "Strong password" ? "#276749" : "#7b341e" }}>{passwordMessage(form.password)}</p>
+          <PasswordField label="Confirm Password" name="confirm_password" value={form.confirm_password} onChange={(e) => update("confirm_password", e.target.value)} visible={showPassword} onToggle={() => setShowPassword(!showPassword)} error={errors.confirm_password} autoComplete="new-password" />
+          {apiError && <p role="alert" style={{ color: "#c53030" }}>{apiError}</p>}
+          <button type="submit" disabled={submitting} style={{ width: "100%", padding: "11px", cursor: submitting ? "wait" : "pointer" }}>{submitting ? "Creating Account..." : "Submit Registration"}</button>
+        </form>
+      )}
+      <p style={{ textAlign: "center" }}><button type="button" onClick={() => onNavigate("/signin")} style={{ border: 0, background: "none", color: "#1f6f8b", cursor: "pointer" }}>Sign In</button></p>
+    </AuthShell>
+  );
+}
+
+function ForgotPassword({ onNavigate }) {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setError("Enter a valid email address."); return; }
+    setSubmitting(true);
+    try { const response = await axios.post(`${API}/api/auth/forgot-password`, { email }); setMessage(response.data.message); }
+    catch (requestError) { setError(getApiError(requestError, "Unable to send the password reset email.")); }
+    finally { setSubmitting(false); }
+  };
+  return <AuthShell title="Forgot Password" subtitle="Enter your registered email address and we will send you a password reset link." onNavigate={onNavigate}>
+    <form onSubmit={submit} noValidate><label style={{ display: "block", marginBottom: "14px" }}>Email Address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={authInputStyle} autoComplete="email" />{error && <span style={{ display: "block", color: "#c53030", fontSize: "13px" }}>{error}</span>}</label>{message && <p role="status" style={{ color: "#276749" }}>{message}</p>}<button type="submit" disabled={submitting} style={{ width: "100%", padding: "11px" }}>{submitting ? "Sending..." : "Send Reset Link"}</button></form>
+    <button type="button" onClick={() => onNavigate("/signin")} style={{ marginTop: "16px", border: 0, background: "none", color: "#1f6f8b", cursor: "pointer" }}>Back to Sign In</button>
+  </AuthShell>;
+}
+
+function ResetPassword({ onNavigate }) {
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault(); setError("");
+    if (!token) { setError("This password reset link is invalid or has expired. Please request a new reset link."); return; }
+    if (passwordMessage(password) !== "Strong password") { setError("Password must be at least 8 characters with uppercase, lowercase, number, and special character."); return; }
+    if (password !== confirm) { setError("Passwords do not match."); return; }
+    setSubmitting(true);
+    try { const response = await axios.post(`${API}/api/auth/reset-password`, { token, password }); setSuccess(response.data.message); }
+    catch (requestError) { setError(getApiError(requestError, "This password reset link is invalid or has expired. Please request a new reset link.")); }
+    finally { setSubmitting(false); }
+  };
+  return <AuthShell title="Reset Password" onNavigate={onNavigate}>
+    {success ? <div role="status"><p style={{ color: "#276749" }}>{success}</p><button type="button" onClick={() => onNavigate("/signin")}>Go to Sign In</button></div> : <form onSubmit={submit} noValidate><PasswordField label="New Password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} visible={showPassword} onToggle={() => setShowPassword(!showPassword)} error="" autoComplete="new-password" /><p style={{ fontSize: "13px" }}>{passwordMessage(password)}</p><PasswordField label="Confirm New Password" name="confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} visible={showPassword} onToggle={() => setShowPassword(!showPassword)} error="" autoComplete="new-password" />{error && <p role="alert" style={{ color: "#c53030" }}>{error}</p>}<button type="submit" disabled={submitting} style={{ width: "100%", padding: "11px" }}>{submitting ? "Resetting..." : "Reset Password"}</button></form>}
+  </AuthShell>;
+}
+
+function App() {
+  const [route, setRoute] = useState(window.location.pathname || "/signin");
+  const [user, setUser] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+
+  const navigate = (path) => {
+    window.history.pushState({}, "", path);
+    setRoute(path);
+  };
+
+  useEffect(() => {
+    const onPopState = () => setRoute(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    axios.get(`${API}/api/auth/me`).then((response) => setUser(response.data.user)).catch(() => {}).finally(() => setCheckingSession(false));
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!checkingSession && route === "/dashboard" && !user) {
+      navigate("/signin");
+    }
+  }, [checkingSession, route, user]);
+
+  const logout = async () => {
+    await axios.post(`${API}/api/auth/logout`).catch(() => {});
+    setUser(null);
+    navigate("/signin");
+  };
+
+  if (checkingSession) return <main className="loading"><h1>Loading...</h1></main>;
+  if (route === "/reset-password") return <ResetPassword onNavigate={navigate} />;
+  if (route === "/signup") return <SignUp onNavigate={(path) => { if (path === "/signin") setRegisteredEmail(""); navigate(path); }} />;
+  if (route === "/forgot-password") return <ForgotPassword onNavigate={navigate} />;
+  if (route === "/dashboard" && user) return <Dashboard user={user} onLogout={logout} />;
+  if (route === "/dashboard" && !user) return <main className="loading"><h1>Redirecting...</h1></main>;
+  return <SignIn initialEmail={registeredEmail} onNavigate={navigate} onLogin={setUser} />;
 }
 
 export default App;
