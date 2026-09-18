@@ -1,8 +1,8 @@
-# NIRIKSHAN
+# AVLOKAN
 
 ### AI-Powered Infrastructure Project Monitoring and Risk Prediction Platform
 
-NIRIKSHAN is a web-based platform designed to monitor infrastructure projects and identify potential cost overruns and schedule delays using machine learning.
+AVLOKAN is a web-based platform designed to monitor infrastructure projects and identify potential cost overruns and schedule delays using machine learning.
 
 ## Features
 
@@ -42,7 +42,7 @@ NIRIKSHAN is a web-based platform designed to monitor infrastructure projects an
 ## Project Structure
 
 ```text
-NIRIKSHAN/
+AVLOKAN/
 ├── backend/
 ├── frontend/
 ├── machine learning scripts

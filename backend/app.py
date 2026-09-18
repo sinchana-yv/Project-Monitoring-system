@@ -1,4 +1,3 @@
-
 from datetime import date
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
@@ -32,6 +31,11 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from notification_service import (
+    ensure_notification_table,
+    generate_notifications_for_user,
+    notification_record,
+)
 
 # ============================================================
 # CREATE FLASK APP
@@ -40,10 +44,10 @@ from reportlab.platypus import (
 app = Flask(__name__)
 
 app.config.update(
-    SECRET_KEY=os.environ.get("NIRIKSHAN_SECRET_KEY") or secrets.token_hex(32),
+    SECRET_KEY=os.environ.get("AVLOKAN_SECRET_KEY") or os.environ.get("NIRIKSHAN_SECRET_KEY") or secrets.token_hex(32),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.environ.get("NIRIKSHAN_COOKIE_SECURE", "0") == "1",
+    SESSION_COOKIE_SECURE=os.environ.get("AVLOKAN_COOKIE_SECURE", os.environ.get("NIRIKSHAN_COOKIE_SECURE", "0")) == "1",
     PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
 )
 
@@ -89,6 +93,8 @@ def initialize_auth_database():
 
 
 initialize_auth_database()
+with auth_db_connection() as connection:
+    ensure_notification_table(connection)
 
 # ============================================================
 # LOAD DASHBOARD DATA
@@ -241,7 +247,7 @@ except Exception as exc:
     print("Time Delay prediction assets could not be loaded:", exc)
 
 print("=" * 70)
-print("PAIMANA BACKEND")
+print("AVLOKAN BACKEND")
 print("=" * 70)
 
 print("Data file:", DATA_FILE)
@@ -318,31 +324,31 @@ def current_auth_user():
 
 
 def send_password_reset_email(user, token):
-    smtp_host = os.environ.get("NIRIKSHAN_SMTP_HOST")
-    smtp_port = int(os.environ.get("NIRIKSHAN_SMTP_PORT", "587"))
-    smtp_username = os.environ.get("NIRIKSHAN_SMTP_USERNAME")
-    smtp_password = os.environ.get("NIRIKSHAN_SMTP_PASSWORD")
-    sender = os.environ.get("NIRIKSHAN_SMTP_FROM", smtp_username or "")
-    frontend_url = os.environ.get(
-        "NIRIKSHAN_FRONTEND_URL",
-        "http://127.0.0.1:5173",
+    smtp_host = os.environ.get("AVLOKAN_SMTP_HOST") or os.environ.get("NIRIKSHAN_SMTP_HOST")
+    smtp_port = int(os.environ.get("AVLOKAN_SMTP_PORT") or os.environ.get("NIRIKSHAN_SMTP_PORT", "587"))
+    smtp_username = os.environ.get("AVLOKAN_SMTP_USERNAME") or os.environ.get("NIRIKSHAN_SMTP_USERNAME")
+    smtp_password = os.environ.get("AVLOKAN_SMTP_PASSWORD") or os.environ.get("NIRIKSHAN_SMTP_PASSWORD")
+    sender = os.environ.get("AVLOKAN_SMTP_FROM") or os.environ.get("NIRIKSHAN_SMTP_FROM", smtp_username or "")
+    frontend_url = (
+        os.environ.get("AVLOKAN_FRONTEND_URL")
+        or os.environ.get("NIRIKSHAN_FRONTEND_URL", "http://127.0.0.1:5173")
     ).rstrip("/")
 
     if not all([smtp_host, smtp_username, smtp_password, sender]):
         raise RuntimeError(
             "Password reset email is not configured. Set "
-            "NIRIKSHAN_SMTP_HOST, NIRIKSHAN_SMTP_PORT, "
-            "NIRIKSHAN_SMTP_USERNAME, NIRIKSHAN_SMTP_PASSWORD, "
-            "NIRIKSHAN_SMTP_FROM, and NIRIKSHAN_FRONTEND_URL."
+            "AVLOKAN_SMTP_HOST, AVLOKAN_SMTP_PORT, "
+            "AVLOKAN_SMTP_USERNAME, AVLOKAN_SMTP_PASSWORD, "
+            "AVLOKAN_SMTP_FROM, and AVLOKAN_FRONTEND_URL."
         )
 
     reset_url = f"{frontend_url}/reset-password?token={token}"
     message = EmailMessage()
-    message["Subject"] = "NIRIKSHAN password reset"
+    message["Subject"] = "AVLOKAN password reset"
     message["From"] = sender
     message["To"] = user["email"]
     message.set_content(
-        "A password reset was requested for your NIRIKSHAN account.\n\n"
+        "A password reset was requested for your AVLOKAN account.\n\n"
         f"Open this secure link to create a new password:\n{reset_url}\n\n"
         "This link expires in 30 minutes. If you did not request this, "
         "you can ignore this email."
@@ -619,18 +625,12 @@ def prepare_time_delay_features(project_row):
             "Time Delay preprocessing artifacts are unavailable."
         )
 
+    project_row = project_row.copy()
     numeric = time_delay_metadata["numeric_columns"]
     categorical = time_delay_metadata["categorical_columns"]
-    required = [
-        column
-        for column in numeric + categorical
-        if column not in project_row
-    ]
-    if required:
-        raise RuntimeError(
-            "Required Time Delay feature columns are missing: "
-            + ", ".join(required)
-        )
+    for column in numeric + categorical:
+        if column not in project_row:
+            project_row[column] = np.nan
 
     numeric_values = project_row[numeric].to_frame().T.copy()
     for column in numeric:
@@ -666,6 +666,102 @@ def risk_level(probability):
     if probability >= 0.40:
         return "MEDIUM"
     return "LOW"
+
+
+def predict_historical_risk(project_row):
+    if prediction_model is None or preprocessing_metadata is None:
+        return None
+    try:
+        project_row = project_row.copy()
+        required_columns = (
+            preprocessing_metadata["numeric_columns"]
+            + preprocessing_metadata["categorical_columns"]
+        )
+        for column in required_columns:
+            if column not in project_row:
+                project_row[column] = np.nan
+        features = prepare_prediction_features(project_row)
+        probability = float(prediction_model.predict_proba(features)[0, 1])
+        return {
+            "probability": probability,
+            "risk_level": risk_level(probability),
+        }
+    except Exception as exc:
+        print("Historical risk calculation failed:", exc)
+        return None
+
+
+def prepare_historical_prediction_features(frame):
+    if prediction_model is None or preprocessing_metadata is None:
+        return pd.DataFrame()
+    dropped = preprocessing_metadata["dropped_columns"]
+    numeric = preprocessing_metadata["numeric_columns"]
+    categorical = preprocessing_metadata["categorical_columns"]
+    features = frame.copy()
+    for column in numeric + categorical:
+        if column not in features:
+            features[column] = np.nan
+    features = features.drop(columns=dropped, errors="ignore")
+    date_columns = features.select_dtypes(
+        include=["datetime64[ns]"]
+    ).columns.tolist()
+    features = features.drop(columns=date_columns)
+    for column in numeric:
+        features[column] = pd.to_numeric(features[column], errors="coerce")
+    features[numeric] = features[numeric].replace([np.inf, -np.inf], np.nan)
+    numeric_values = numeric_imputer.transform(features[numeric])
+    categorical_values = categorical_imputer.transform(features[categorical])
+    encoded = onehot_encoder.transform(categorical_values)
+    encoded_names = onehot_encoder.get_feature_names_out(categorical)
+    transformed = pd.concat(
+        [
+            pd.DataFrame(numeric_values, columns=numeric, index=features.index),
+            pd.DataFrame(
+                encoded,
+                columns=encoded_names,
+                index=features.index,
+            ),
+        ],
+        axis=1,
+    )
+    transformed.columns = make_unique(
+        [clean_feature_name(column) for column in transformed.columns]
+    )
+    return transformed.reindex(columns=feature_names, fill_value=0)
+
+
+def generate_current_user_notifications(user_id):
+    if history_features is None:
+        return 0
+    predicted_history = history_features.copy()
+    try:
+        batch_features = prepare_historical_prediction_features(predicted_history)
+    except Exception as exc:
+        print("Historical risk feature preparation failed:", exc)
+        batch_features = pd.DataFrame()
+    if not batch_features.empty:
+        probabilities = prediction_model.predict_proba(batch_features)[:, 1]
+        predicted_history["_risk_probability"] = np.nan
+        predicted_history["_risk_level"] = None
+        for index, probability in zip(predicted_history.index, probabilities):
+            predicted_history.at[index, "_risk_probability"] = float(probability)
+            predicted_history.at[index, "_risk_level"] = risk_level(probability)
+    else:
+        predicted_history = pd.DataFrame()
+    with auth_db_connection() as connection:
+        return generate_notifications_for_user(
+            connection,
+            user_id,
+            predicted_history,
+            predict_historical_risk,
+        )
+
+
+def notification_user():
+    user = current_auth_user()
+    if user is None:
+        return None, auth_error("Authentication required.", 401)
+    return user, None
 
 
 def readable_feature_name(feature):
@@ -768,9 +864,8 @@ def native_shap_explanation(model, features, names, positive_label):
 
 @app.route("/")
 def home():
-
     return jsonify({
-        "message": "PAIMANA AI Project Monitoring API",
+        "message": "AVLOKAN AI Project Monitoring API",
         "status": "running",
         "projects": len(df)
     })
@@ -1177,14 +1272,14 @@ def build_project_report(project):
     executive_summary += f"Interpretation should account for {report_value(observations)} recorded observations and the availability of only the supplied historical records."
 
     story = [
-        p("NIRIKSHAN", title),
+        p("AVLOKAN", title),
         p("Intelligent Infrastructure Project Monitoring and Risk Assessment", subtitle),
         report_table([
             [p("Programme", label), p("SIH26103"), p("Generated", label), p(date.today().isoformat())],
             [p("Project", label), p(report_text(project.get("project_name"))), p("Project code", label), p(report_text(project.get("project_code")))],
         ], [31 * mm, 57 * mm, 31 * mm, 57 * mm]),
         Spacer(1, 5),
-        p("This report is an AI-assisted monitoring aid generated by the NIRIKSHAN prototype. It does not replace official project verification.", small),
+        p("This report is an AI-assisted monitoring aid generated by the AVLOKAN prototype. It does not replace official project verification.", small),
         p("1. Executive Project Status", section),
         field_rows([
             ("Project name", report_text(project.get("project_name"))),
@@ -1298,11 +1393,12 @@ def build_project_report(project):
     ])
 
     buffer = BytesIO()
+    _report_project_code = project.get("project_code", "")
     document = BaseDocTemplate(
         buffer, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=22 * mm, bottomMargin=18 * mm,
-        title=f"NIRIKSHAN {project_code if 'project_code' in locals() else project.get('project_code')} Project Report",
-        author="NIRIKSHAN prototype",
+        title=f"AVLOKAN {_report_project_code} Project Report",
+        author="AVLOKAN prototype",
     )
     frame = Frame(document.leftMargin, document.bottomMargin, document.width, document.height, id="normal")
 
@@ -1312,10 +1408,10 @@ def build_project_report(project):
         canvas.line(doc.leftMargin, A4[1] - 16 * mm, A4[0] - doc.rightMargin, A4[1] - 16 * mm)
         canvas.setFont("Helvetica-Bold", 8)
         canvas.setFillColor(colors.HexColor("#17324D"))
-        canvas.drawString(doc.leftMargin, A4[1] - 12 * mm, "NIRIKSHAN | SIH26103")
+        canvas.drawString(doc.leftMargin, A4[1] - 12 * mm, "AVLOKAN | SIH26103")
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#52606D"))
-        canvas.drawString(doc.leftMargin, 10 * mm, "Generated by NIRIKSHAN prototype | SIH26103")
+        canvas.drawString(doc.leftMargin, 10 * mm, "Generated by AVLOKAN prototype | SIH26103")
         canvas.drawRightString(A4[0] - doc.rightMargin, 10 * mm, f"Page {doc.page}")
         canvas.drawCentredString(A4[0] / 2, 6 * mm, "This report is an AI-assisted monitoring aid and does not replace official project verification.")
         canvas.restoreState()
@@ -1344,7 +1440,7 @@ def project_report(project_code):
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"NIRIKSHAN_{project_code}_Project_Report.pdf",
+        download_name=f"AVLOKAN_{project_code}_Project_Report.pdf",
     )
 
 
@@ -1551,6 +1647,257 @@ def project_explanation(project_code):
         }), 500
 
 
+def historical_risk_history(project_code):
+    if history_features is None:
+        return []
+    target_code = str(project_code).strip()
+    rows = history_features[
+        history_features["project_code"].astype(str).str.strip() == target_code
+    ].copy()
+    if rows.empty:
+        return []
+    rows["report_month"] = pd.to_datetime(rows["report_month"], errors="coerce")
+    rows = (
+        rows.dropna(subset=["report_month"])
+        .sort_values("report_month")
+        .drop_duplicates(subset=["project_code", "report_month"], keep="last")
+    )
+    records = []
+    for _, row in rows.iterrows():
+        cost_probability = None
+        cost_level = None
+        if prediction_model is not None:
+            cost_prediction = predict_historical_risk(row)
+            if cost_prediction is not None:
+                cost_probability = cost_prediction["probability"]
+                cost_level = cost_prediction["risk_level"]
+
+        time_probability = None
+        time_level = None
+        if time_delay_model is not None:
+            try:
+                delay_features = prepare_time_delay_features(row)
+                time_probability = float(time_delay_model.predict(delay_features)[0])
+                time_level = risk_level(time_probability)
+            except Exception as exc:
+                print("Historical time-delay calculation failed:", exc)
+
+        def value_or_none(column):
+            if column not in row or pd.isna(row[column]):
+                return None
+            val = row[column]
+            if isinstance(val, (np.floating, float)) and (np.isnan(val) or np.isinf(val)):
+                return None
+            return val
+
+        records.append({
+            "project_code": target_code,
+            "project_name": value_or_none("project_name"),
+            "report_month": row["report_month"].strftime("%Y-%m-%d"),
+            "cost_overrun_probability": cost_probability,
+            "time_delay_probability": time_probability,
+            "cost_risk_level": cost_level,
+            "time_delay_risk_level": time_level,
+            "physical_progress": value_or_none("physical_progress"),
+            "expenditure_ratio": value_or_none("expenditure_ratio"),
+        })
+    previous_record = None
+    escalation_targets = {"LOW -> MEDIUM", "LOW -> HIGH", "MEDIUM -> HIGH"}
+    for record in records:
+        record["cost_risk_change"] = None
+        record["time_delay_risk_change"] = None
+        record["escalation"] = "No escalation"
+        if previous_record is not None:
+            if (
+                previous_record["cost_risk_level"] is not None
+                and record["cost_risk_level"] is not None
+            ):
+                cost_change = f"{previous_record['cost_risk_level']} -> {record['cost_risk_level']}"
+                record["cost_risk_change"] = cost_change
+                if cost_change in escalation_targets:
+                    record["escalation"] = cost_change
+            if (
+                previous_record["time_delay_risk_level"] is not None
+                and record["time_delay_risk_level"] is not None
+            ):
+                time_change = f"{previous_record['time_delay_risk_level']} -> {record['time_delay_risk_level']}"
+                record["time_delay_risk_change"] = time_change
+                if time_change in escalation_targets and record["escalation"] == "No escalation":
+                    record["escalation"] = time_change
+        previous_record = record
+    return records
+
+
+@app.get("/api/notifications")
+def notifications():
+    user, error = notification_user()
+    if error:
+        return error
+    try:
+        generate_current_user_notifications(user["id"])
+        with auth_db_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM notifications
+                WHERE user_id = ?
+                ORDER BY date(current_report_month) DESC, datetime(created_at) DESC, id DESC
+                """,
+                (user["id"],),
+            ).fetchall()
+        records = [notification_record(row) for row in rows]
+        return jsonify({
+            "success": True,
+            "notifications": records,
+            "unread_count": sum(not record["is_read"] for record in records),
+        })
+    except Exception as exc:
+        print("Notification retrieval failed:", exc)
+        return jsonify({
+            "error": "Unable to load risk escalation notifications.",
+            "details": str(exc),
+        }), 500
+
+
+@app.get("/api/notifications/unread-count")
+def notification_unread_count():
+    user, error = notification_user()
+    if error:
+        return error
+    try:
+        generate_current_user_notifications(user["id"])
+        with auth_db_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS unread_count
+                FROM notifications
+                WHERE user_id = ? AND is_read = 0
+                """,
+                (user["id"],),
+            ).fetchone()
+        return jsonify({
+            "success": True,
+            "unread_count": int(row["unread_count"]),
+        })
+    except Exception as exc:
+        print("Unread notification count failed:", exc)
+        return jsonify({
+            "error": "Unable to load unread notification count.",
+            "details": str(exc),
+        }), 500
+
+
+@app.patch("/api/notifications/<int:notification_id>/read")
+def mark_notification_read(notification_id):
+    user, error = notification_user()
+    if error:
+        return error
+    with auth_db_connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE notifications
+            SET is_read = 1
+            WHERE id = ? AND user_id = ?
+            """,
+            (notification_id, user["id"]),
+        )
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Notification not found."}), 404
+    return jsonify({"success": True, "notification_id": notification_id})
+
+
+@app.patch("/api/notifications/mark-all-read")
+def mark_all_notifications_read():
+    user, error = notification_user()
+    if error:
+        return error
+    with auth_db_connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE notifications
+            SET is_read = 1
+            WHERE user_id = ? AND is_read = 0
+            """,
+            (user["id"],),
+        )
+    return jsonify({
+        "success": True,
+        "marked_read": cursor.rowcount,
+    })
+
+
+@app.get("/api/notifications/project/<project_code>")
+def project_notifications(project_code):
+    user, error = notification_user()
+    if error:
+        return error
+    try:
+        generate_current_user_notifications(user["id"])
+        with auth_db_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM notifications
+                WHERE user_id = ? AND project_code = ?
+                ORDER BY datetime(created_at) DESC, id DESC
+                """,
+                (user["id"], str(project_code)),
+            ).fetchall()
+        return jsonify({
+            "success": True,
+            "project_code": str(project_code),
+            "notifications": [notification_record(row) for row in rows],
+        })
+    except Exception as exc:
+        print("Project notifications retrieval failed:", exc)
+        return jsonify({
+            "error": "Unable to load project notifications.",
+            "details": str(exc),
+        }), 500
+
+
+@app.get("/api/projects/<project_code>/risk-history")
+def project_risk_history(project_code):
+    try:
+        records = historical_risk_history(project_code)
+        if not records:
+            return jsonify({
+                "success": True,
+                "project_code": str(project_code),
+                "records": [],
+                "message": "No historical records are available for this project.",
+            })
+
+        message = None
+        previous = None
+        current = None
+        if len(records) == 1:
+            message = "Only one historical observation is available for this project."
+        else:
+            valid_records = [
+                record for record in records
+                if record["cost_risk_level"] is not None
+                or record["time_delay_risk_level"] is not None
+            ]
+            if len(valid_records) >= 2:
+                previous = valid_records[-2]
+                current = valid_records[-1]
+
+        return jsonify({
+            "success": True,
+            "project_code": str(project_code),
+            "project_name": records[-1]["project_name"],
+            "records": records,
+            "message": message,
+            "previous": previous,
+            "current": current,
+        })
+    except Exception as exc:
+        print("Project risk history failed:", exc)
+        return jsonify({
+            "error": "Unable to load project risk history.",
+            "details": str(exc),
+        }), 500
+
+
 # ============================================================
 # TOP HIGH-RISK PROJECTS
 # ============================================================
@@ -1672,11 +2019,11 @@ def sectors():
 
 if __name__ == "__main__":
 
-    print("\nStarting PAIMANA backend...")
+    print("\nStarting AVLOKAN backend...")
     print("Open: http://127.0.0.1:5001")
 
     app.run(
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=5001,
-        debug=True
+        debug=False
     )
